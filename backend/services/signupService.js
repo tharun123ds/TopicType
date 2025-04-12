@@ -1,7 +1,19 @@
 const User = require('../models/user');
 const bcrypt = require('bcryptjs');
 const validator = require('validator');
+const dns = require('dns').promises;
+const sendEmail = require('../utils/sendEmail');
 const { generateAccessToken, generateRefreshToken } = require('../utils/generateToken');
+
+const isValidEmailDomain = async (email) => {
+  const domain = email.split('@')[1];
+  try {
+    const records = await dns.resolveMx(domain);
+    return records && records.length > 0;
+  } catch {
+    return false;
+  }
+};
 
 const signupUser = async ({ username, email, password }) => {
   if (!username || !email || !password) {
@@ -10,6 +22,10 @@ const signupUser = async ({ username, email, password }) => {
 
   if (!validator.isEmail(email)) {
     throw { status: 400, message: 'Invalid email format.' };
+  }
+
+  if (!(await isValidEmailDomain(email))) {
+    throw { status: 400, message: 'Invalid email domain.' };
   }
 
   const validUsername = /^[a-zA-Z0-9]+$/;
@@ -33,6 +49,19 @@ const signupUser = async ({ username, email, password }) => {
     password: hashedPassword,
   });
 
+  try {
+    await sendEmail({
+      to: email,
+      subject: 'Welcome to Topic-Type! 🎉',
+      text: `Hi ${username},\n\nYour Topic-Type account was created successfully.\n\nHappy typing!\n– Team Topic-Type`,
+      html: `<p>Hi <strong>${username}</strong>,</p><p>Your Topic-Type account was created successfully.</p><p>Happy typing! 🚀</p><br/><p>– Team <strong>Topic-Type</strong></p>`,
+    });
+  } catch (err) {
+    await User.findByIdAndDelete(newUser._id);
+    console.error('Signup email failed:', err);
+    throw { status: 400, message: 'Failed to send welcome email. Please use a valid email address.' };
+  }
+
   const accessToken = generateAccessToken({ id: newUser._id, email: newUser.email });
   const refreshToken = generateRefreshToken({ id: newUser._id });
 
@@ -43,7 +72,7 @@ const signupUser = async ({ username, email, password }) => {
       email: newUser.email,
     },
     accessToken,
-    refreshToken, // optional, you can set it in cookie in controller
+    refreshToken,
   };
 };
 
