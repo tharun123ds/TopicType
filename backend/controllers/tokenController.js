@@ -28,9 +28,16 @@ const refreshTokenController = async (req, res) => {
             return res.status(401).json({ message: 'User not found.' });
         }
 
-        // Generate new access & refresh tokens
-        const newAccessToken = generateAccessToken({ id: user._id, email: user.email });
-        const newRefreshToken = generateRefreshToken({ id: user._id });
+        const payload = {
+            id: user._id,
+            username: user.username,
+            email: user.email,
+            role: user.role, // 👈 Add this!
+        };
+
+        const newAccessToken = generateAccessToken(payload);
+        const newRefreshToken = generateRefreshToken(payload);
+
 
         // Set new refresh token in cookie
         res.cookie('refreshToken', newRefreshToken, refreshCookieOptions);

@@ -4,6 +4,7 @@ const validator = require('validator');
 const dns = require('dns').promises;
 const sendEmail = require('../utils/sendEmail');
 const { generateAccessToken, generateRefreshToken } = require('../utils/generateToken');
+const withTimeout = require('../utils/withTimeout');
 
 const isValidEmailDomain = async (email) => {
   const domain = email.split('@')[1];
@@ -50,20 +51,45 @@ const signupUser = async ({ username, email, password }) => {
   });
 
   try {
-    await sendEmail({
-      to: email,
-      subject: 'Welcome to Topic-Type! 🎉',
-      text: `Hi ${username},\n\nYour Topic-Type account was created successfully.\n\nHappy typing!\n– Team Topic-Type`,
-      html: `<p>Hi <strong>${username}</strong>,</p><p>Your Topic-Type account was created successfully.</p><p>Happy typing! 🚀</p><br/><p>– Team <strong>Topic-Type</strong></p>`,
-    });
+    // Set a 5-second timeout for sending the email
+    await withTimeout(
+      sendEmail({
+        to: email,
+        subject: 'Welcome to Topic-Type! 🎉',
+        text: `Hi ${username},\n\nYour Topic-Type account was created successfully.\n\nHappy typing!\n– Team Topic-Type`,
+        html: `<p>Hi <strong>${username}</strong>,</p><p>Your Topic-Type account was created successfully.</p><p>Happy typing! 🚀</p><br/><p>– Team <strong>Topic-Type</strong></p>`,
+      }),
+      5000 // 5 seconds timeout
+    );
   } catch (err) {
+    // If the email sending fails or times out, delete the user
     await User.findByIdAndDelete(newUser._id);
-    console.error('Signup email failed:', err);
-    throw { status: 400, message: 'Failed to send welcome email. Please use a valid email address.' };
+
+    // Log the error with context
+    console.error('Signup email failed:', {
+      userId: newUser._id,
+      email,
+      error: err.message,
+    });
+
+    // Throw a meaningful error to frontend
+    throw {
+      status: 400,
+      message: 'Failed to send welcome email. Please use a valid email address.',
+    };
   }
 
-  const accessToken = generateAccessToken({ id: newUser._id, email: newUser.email });
-  const refreshToken = generateRefreshToken({ id: newUser._id });
+
+  const payload = {
+    id: newUser._id,
+    username: newUser.username,
+    email: newUser.email,
+    role: newUser.role,
+  };
+
+
+  const accessToken = generateAccessToken(payload);
+  const refreshToken = generateRefreshToken(payload);
 
   return {
     user: {

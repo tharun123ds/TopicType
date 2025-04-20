@@ -22,8 +22,16 @@ const loginUser = async ({ identifier, password }) => {
         throw { status: 401, message: 'Invalid credentials.' };
     }
 
-    const accessToken = generateAccessToken({ id: user._id });
-    const refreshToken = generateRefreshToken({ id: user._id });
+    const payload = {
+        id: user._id,
+        username: user.username,
+        email: user.email,
+        role: user.role,
+    };
+
+    const accessToken = generateAccessToken(payload);
+    const refreshToken = generateRefreshToken(payload);
+
 
     return {
         user: {

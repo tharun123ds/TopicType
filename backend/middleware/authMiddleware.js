@@ -19,8 +19,14 @@ const authMiddleware = (req, res, next) => {
     }
 
     try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET, { algorithms: ['HS256'] }); // Explicit algorithm check.
-        req.user = decoded; // You can access req.user in controllers
+        const decoded = jwt.verify(token, process.env.JWT_SECRET, { algorithms: ['HS256'] });
+
+        // Standardize user ID assignment
+        req.user = {
+            id: decoded.id || decoded.userId,
+            ...decoded
+        };
+
         next();
     } catch (err) {
         if (err instanceof jwt.TokenExpiredError) {
