@@ -9,4 +9,5 @@ const topicSchema = new mongoose.Schema({
     }
 }, { timestamps: true });
 
-module.exports = mongoose.model('Topic', topicSchema);
+// Fix: prevent OverwriteModelError
+module.exports = mongoose.models.Topic || mongoose.model('Topic', topicSchema);
